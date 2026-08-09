@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>A BOX PAPER PACK - Vehicle Loading</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#1769aa;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;opacity:.9}
+main{max-width:720px;margin:auto;padding:14px}.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #00000012}
+label{display:block;font-weight:700;font-size:14px;margin:11px 0 6px}
+input{width:100%;padding:12px;border:1px solid #cfd6dd;border-radius:9px;font-size:16px}
+button{border:0;border-radius:9px;padding:12px 14px;font-weight:700;font-size:15px;cursor:pointer}
+button:disabled{opacity:.6}.primary{background:#1769aa;color:#fff;width:100%;margin-top:14px}.secondary{background:#e9eef3;color:#17202a}.danger{background:#fde7e7;color:#b42318}
+.total{background:#eef7ff;border:1px solid #b8ddfa;padding:13px;border-radius:10px;margin-top:12px;font-size:17px;font-weight:700}
+.search{margin-bottom:10px}.entry{border:1px solid #e1e5e8;border-radius:12px;padding:13px;margin:10px 0}.entry h3{margin:0 0 8px;font-size:16px}
+.muted{color:#65727e;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:14px}.actions{display:flex;gap:8px;margin-top:10px}.actions button{flex:1}
+.empty{text-align:center;color:#65727e;padding:25px 10px}.itemrow{border:1px solid #dfe5ea;border-radius:10px;padding:10px;margin:8px 0;background:#fafbfc}
+.bundleparts div{display:flex;gap:6px;margin-top:6px}.whatsapp{background:#25D366;color:#fff;width:100%;margin-top:8px}
+#loginScreen{position:fixed;inset:0;background:#f4f6f8;display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+.loginCard{background:#fff;width:100%;max-width:380px;border-radius:16px;padding:24px;box-shadow:0 4px 24px #0002}.loginCard h2{margin:0 0 6px}
+.loginSub{color:#65727e;font-size:13px;margin-bottom:18px}.loginBtn{width:100%;background:#1769aa;color:#fff;margin-top:14px}
+.loginError{color:#b42318;font-size:13px;margin-top:10px;display:none}#appContent{display:none}
+.logout{float:right;background:#ffffff25;color:#fff;padding:8px 10px;font-size:13px}
+@media(max-width:430px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="loginCard">
+    <h2>📦 A BOX PAPER PACK</h2>
+    <div class="loginSub">Vehicle Loading Management (Cloud)</div>
+    <div style="background:#eef7ff;border-radius:9px;padding:10px;margin-bottom:12px;font-size:14px">
+      Username: <b>Kartik123</b>
+    </div>
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="loginBtn" id="loginBtn" onclick="doLogin()">🔐 Login</button>
+    <div id="loginError" class="loginError"></div>
+  </div>
+</div>
+
+<div id="appContent">
+<header>
+  <button class="logout" onclick="doLogout()">Logout</button>
+  <h1>📦 A BOX PAPER PACK</h1>
+  <div class="sub">🚚 Cloud Vehicle Loading Management</div>
+</header>
+
+<main>
+<section class="card">
+  <h2 id="formTitle" style="margin:0;font-size:19px">नई Loading Entry</h2>
+
+  <label>Party Name</label>
+  <input id="party" placeholder="पार्टी का नाम">
+
+  <label>Date</label>
+  <input id="date" type="date">
+
+  <label>Vehicle Number</label>
+  <input id="vehicle" placeholder="जैसे GJ01AB1234" style="text-transform:uppercase">
+
+  <label>Items</label>
+  <div id="items"></div>
+
+  <button type="button" class="secondary" onclick="addItem()" style="width:100%;margin-top:8px">➕ Add Item Code</button>
+
+  <div class="total">Total Box: <span id="grandTotalBox">0</span></div>
+
+  <button class="primary" id="saveBtn" onclick="saveEntry()">💾 Save Loading</button>
+  <button class="secondary" id="cancelBtn" onclick="cancelEdit()" style="width:100%;margin-top:8px;display:none">Cancel Edit</button>
+</section>
+
+<section class="card">
+  <h2 style="margin:0 0 12px;font-size:19px">📋 Loading List (Live Cloud)</h2>
+  <input class="search" id="search" placeholder="Party / Vehicle / Item Code से खोजें..." oninput="render()">
+  <div id="summary" class="muted"></div>
+  <div id="list"><div class="empty">Loading data...</div></div>
+</section>
+</main>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAluc7eLWkYktcqKGdLXocnl7E2mWZPD8o",
+  authDomain: "a-box-paper-pack.firebaseapp.com",
+  databaseURL: "https://a-box-paper-pack-default-rtdb.firebaseio.com",
+  projectId: "a-box-paper-pack",
+  storageBucket: "a-box-paper-pack.firebasestorage.app",
+  messagingSenderId: "475725589852",
+  appId: "1:475725589852:web:c408fd85c591aaa451e599",
+  measurementId: "G-8YTD7Z9F16"
+};
+
+firebase.initializeApp(firebaseConfig);
+const dbRef = firebase.database().ref("vehicle_loadings");
+
+const LOGIN_USER = "Kartik123";
+const LOGIN_PASS = "Abox123";
+let entries = [];
+let editId = null;
+
+const $ = id => document.getElementById(id);
+
+function today(){ return new Date().toISOString().slice(0,10); }
+
+function doLogin(){
+  const pw = $("loginPass").value;
+  const error = $("loginError");
+  if(LOGIN_USER === "Kartik123" && pw === LOGIN_PASS){
+    sessionStorage.setItem("vehicle_logged_in","1");
+    $("loginScreen").style.display = "none";
+    $("appContent").style.display = "block";
+    error.style.display = "none";
+  }else{
+    error.textContent = "Username या Password गलत है।";
+    error.style.display = "block";
+  }
+}
+
+function doLogout(){
+  sessionStorage.removeItem("vehicle_logged_in");
+  location.reload();
+}
+
+function checkLogin(){
+  if(sessionStorage.getItem("vehicle_logged_in")==="1"){
+    $("loginScreen").style.display="none";
+    $("appContent").style.display="block";
+  }
+}
+
+function addItem(code="",bundle=0,perbox=0,bundleParts=null){
+  const wrap=document.createElement("div");
+  wrap.className="itemrow";
+  const parts=(bundleParts&&bundleParts.length)?bundleParts:[Number(bundle||0)];
+  wrap.innerHTML=`
+    <div><label>Item Code</label><input class="icode" placeholder="Item Code" value="${escAttr(code)}"></div>
+    <div>
+      <label>Per Bundle Box</label>
+      <input class="perbox" type="number" min="0" inputmode="numeric" placeholder="0" value="${escAttr(perbox)}">
+      <button type="button" class="secondary addbundle" style="width:100%;margin-top:6px">➕ Add Bundle</button>
+      <div class="bundleparts"></div>
+    </div>
+    <div><label>Total Bundle</label><input class="bundle" type="number" readonly value="0"></div>
+    <div><label>Total Box</label><input class="ibox" type="number" readonly value="0"></div>
+    <button type="button" class="danger removeItem" style="width:100%">🗑️ Remove Item</button>`;
+  parts.forEach((v,i)=>addBundlePart(wrap,Number(v||0),i===0));
+  wrap.querySelector(".addbundle").addEventListener("click",()=>addBundlePart(wrap,0,false));
+  wrap.querySelector(".perbox").addEventListener("input",()=>calcItem(wrap));
+  wrap.querySelector(".removeItem").addEventListener("click",()=>{wrap.remove();calcTotal();});
+  $("items").appendChild(wrap);
+  calcItem(wrap);calcTotal();
+}
+
+function addBundlePart(wrap,value=0,first=false){
+  const box=wrap.querySelector(".bundleparts");
+  const row=document.createElement("div");
+  row.innerHTML=`<input class="bundlepart" type="number" min="0" inputmode="numeric" placeholder="Bundle Qty" value="${Number(value||0)}">
+    ${first?"":'<button type="button" class="danger" style="padding:8px 12px">✕</button>'}`;
+  row.querySelector(".bundlepart").addEventListener("input",()=>calcItem(wrap));
+  if(!first) row.querySelector("button").addEventListener("click",()=>{row.remove();calcItem(wrap);});
+  box.appendChild(row);
+}
+
+function calcItem(wrap){
+  let sum=0;
+  wrap.querySelectorAll(".bundlepart").forEach(i=>sum+=Number(i.value||0));
+  wrap.querySelector(".bundle").value=sum;
+  const pb=Number(wrap.querySelector(".perbox").value||0);
+  wrap.querySelector(".ibox").value=sum*pb;
+}
+
+function calcTotal(){
+  let total=0;
+  document.querySelectorAll(".itemrow").forEach(r=>total+=Number(r.querySelector(".ibox").value||0));
+  $("grandTotalBox").textContent=total;
+}
+
+function getItems(){
+  return [...document.querySelectorAll(".itemrow")].map(r=>({
+    code:r.querySelector(".icode").value.trim(),
+    bundle:Number(r.querySelector(".bundle").value||0),
+    bundleParts:[...r.querySelectorAll(".bundlepart")].map(i=>Number(i.value||0)),
+    perbox:Number(r.querySelector(".perbox").value||0),
+    total:Number(r.querySelector(".ibox").value||0)
+  })).filter(x=>x.code);
+}
+
+function saveEntry(){
+  const party=$("party").value.trim();
+  const date=$("date").value;
+  const vehicle=$("vehicle").value.trim().toUpperCase();
+  const items=getItems();
+
+  if(!party||!date||!vehicle){alert("Party Name, Date और Vehicle Number भरें।");return;}
+  if(!items.length){alert("कम से कम एक Item Code डालें।");return;}
+
+  const entryId=editId||String(Date.now());
+  const obj={party,date,vehicle,items,updatedAt:Date.now()};
+
+  $("saveBtn").disabled=true;
+  $("saveBtn").textContent=editId?"Updating...":"Saving...";
+
+  dbRef.child(entryId).set(obj).then(()=>{
+    reset();
+  }).catch(err=>{
+    console.error(err);
+    alert("Save नहीं हुआ। Firebase Database Rules/Internet connection check करें।");
+  }).finally(()=>{
+    $("saveBtn").disabled=false;
+    $("saveBtn").textContent=editId?"💾 Update Loading":"💾 Save Loading";
+  });
+}
+
+function reset(){
+  $("party").value="";
+  $("vehicle").value="";
+  $("date").value=today();
+  $("items").innerHTML="";
+  addItem();
+  $("grandTotalBox").textContent="0";
+  editId=null;
+  $("formTitle").textContent="नई Loading Entry";
+  $("saveBtn").textContent="💾 Save Loading";
+  $("cancelBtn").style.display="none";
+}
+
+function editEntry(id){
+  const x=entries.find(e=>e.id==id);
+  if(!x)return;
+  editId=id;
+  $("party").value=x.party||"";
+  $("date").value=x.date||today();
+  $("vehicle").value=x.vehicle||"";
+  $("items").innerHTML="";
+  (x.items||[]).forEach(i=>addItem(i.code,i.bundle,i.perbox,i.bundleParts||[i.bundle]));
+  calcTotal();
+  $("formTitle").textContent="Loading Edit करें";
+  $("saveBtn").textContent="💾 Update Loading";
+  $("cancelBtn").style.display="block";
+  scrollTo({top:0,behavior:"smooth"});
+}
+
+function cancelEdit(){reset();}
+
+function deleteEntry(id){
+  const password=prompt("Loading delete करने के लिए password डालें:");
+  if(password===null)return;
+  if(password!=="ABOX1234"){alert("गलत password! Loading delete नहीं की गई।");return;}
+  if(confirm("यह Loading delete करनी है?")){
+    dbRef.child(id).remove().catch(err=>{
+      console.error(err);
+      alert("Delete नहीं हुआ। Firebase Rules check करें।");
+    });
+  }
+}
+
+function shareWhatsApp(id){
+  const x=entries.find(e=>e.id==id);
+  if(!x)return;
+  let msg=`📦 A BOX PAPER PACK\nParty: ${x.party}\nDate: ${x.date}\nVehicle: ${x.vehicle}\n\nItems:`;
+  x.items.forEach(i=>{msg+=`\n${i.code} - ${i.total} Box`;});
+  const total=x.items.reduce((a,i)=>a+Number(i.total||0),0);
+  msg+=`\n\nTotal Box: ${total}`;
+  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+function render(){
+  const q=$("search").value.toLowerCase().trim();
+  const arr=entries.filter(x=>[x.party,x.vehicle,x.date,...(x.items||[]).map(i=>i.code)].join(" ").toLowerCase().includes(q));
+  let bundles=0,boxes=0;
+  arr.forEach(x=>(x.items||[]).forEach(i=>{bundles+=Number(i.bundle||0);boxes+=Number(i.total||0);}));
+  $("summary").textContent=`${arr.length} entries • ${bundles} bundles • ${boxes} boxes`;
+  $("list").innerHTML=arr.length?arr.map(x=>`
+    <div class="entry">
+      <h3>${esc(x.party)} <span class="muted">• ${esc(x.date)}</span></h3>
+      <div class="muted" style="margin-bottom:8px"><b>Vehicle:</b> ${esc(x.vehicle)}</div>
+      ${(x.items||[]).map(i=>`
+        <div style="padding:7px 0;border-top:1px solid #eee">
+          <div class="grid">
+            <div><b>Item:</b> ${esc(i.code)}</div>
+            <div><b>Bundle:</b> ${Number(i.bundle||0)}</div>
+            <div><b>Per Bundle:</b> ${Number(i.perbox||0)}</div>
+            <div><b>Total Box:</b> <b>${Number(i.total||0)}</b></div>
+          </div>
+        </div>`).join("")}
+      <div class="actions">
+        <button class="secondary" onclick="editEntry('${escAttr(x.id)}')">✏️ Edit</button>
+        <button class="danger" onclick="deleteEntry('${escAttr(x.id)}')">🗑️ Delete</button>
+      </div>
+      <button class="whatsapp" onclick="shareWhatsApp('${escAttr(x.id)}')">📲 WhatsApp Share</button>
+    </div>`).join(""):'<div class="empty">अभी कोई Loading Entry नहीं है।</div>';
+}
+
+function esc(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function escAttr(s){return esc(s).replace(/`/g,"&#96;");}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  $("date").value=today();
+  checkLogin();
+  addItem();
+
+  dbRef.on("value",(snapshot)=>{
+    const data=snapshot.val();
+    entries=[];
+    if(data){
+      Object.keys(data).forEach(key=>entries.push({id:key,...data[key]}));
+      entries.sort((a,b)=>Number(b.updatedAt||b.id)-Number(a.updatedAt||a.id));
+    }
+    render();
+  },(error)=>{
+    console.error(error);
+    $("list").innerHTML='<div class="empty">❌ Firebase Database access denied. Rules check करें।</div>';
+  });
+});
+</script>
+</body>
+</html>
